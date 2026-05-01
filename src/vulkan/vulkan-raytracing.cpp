@@ -1622,11 +1622,23 @@ namespace nvrhi::vulkan
 
         auto libraryInfo = vk::PipelineLibraryCreateInfoKHR();
 
-        auto pipelineClusters = vk::RayTracingPipelineClusterAccelerationStructureCreateInfoNV()
-            .setAllowClusterAccelerationStructure(true);
+        void* pNextChain = nullptr;
+ 
+        // Only use cluster acceleration structure if the extension is available
+        if (m_Context.extensions.NV_cluster_acceleration_structure)
+        {
+            auto pipelineClusters = vk::RayTracingPipelineClusterAccelerationStructureCreateInfoNV()
+                .setAllowClusterAccelerationStructure(true);
+            pNextChain = &pipelineClusters;
+        }
 
-        auto pipelineFlags2 = vk::PipelineCreateFlags2CreateInfoKHR();
-        pipelineFlags2.setFlags(vk::PipelineCreateFlagBits2::eRayTracingAllowSpheresAndLinearSweptSpheresNV);
+        void* pNextChain2 = nullptr;
+        if (queryFeatureSupport(Feature::LinearSweptSpheres))
+        {
+            auto pipelineFlags2 = vk::PipelineCreateFlags2CreateInfoKHR();
+            pipelineFlags2.setFlags(vk::PipelineCreateFlagBits2::eRayTracingAllowSpheresAndLinearSweptSpheresNV);
+            pNextChain2 = &pipelineFlags2;
+        }
 
         auto pipelineInfo = vk::RayTracingPipelineCreateInfoKHR()
             .setStages(shaderStages)
@@ -1634,11 +1646,11 @@ namespace nvrhi::vulkan
             .setLayout(pso->pipelineLayout)
             .setMaxPipelineRayRecursionDepth(desc.maxRecursionDepth)
             .setPLibraryInfo(&libraryInfo)
-            .setPNext(&pipelineFlags2);
+            .setPNext(pNextChain2);
 
         if (m_Context.extensions.NV_cluster_acceleration_structure)
         {
-            pipelineInfo.setPNext(&pipelineClusters);
+            pipelineInfo.setPNext(pNextChain);
         }
 
         res = m_Context.device.createRayTracingPipelinesKHR(vk::DeferredOperationKHR(), m_Context.pipelineCache,
